@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SpiralTest } from './SpiralTest';
 import { ScreeningResults } from './ScreeningResults';
+import { ReadingAssist } from './ReadingAssist';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 const STEPS = ['spiral', 'results'];
@@ -22,8 +23,9 @@ function StepDots({ current }) {
 }
 
 export function ScreeningFlow() {
-  const [phase, setPhase] = useState('intro'); // intro | spiral | results
+  const [phase, setPhase] = useState('intro'); // intro | spiral | results | assist
   const [spiralResult, setSpiralResult] = useState(null);
+  const [assistCtx, setAssistCtx] = useState(null); // { score, report }
   const tts = useTextToSpeech();
 
   // Gentle spoken guidance when the test appears (seniors-first).
@@ -74,11 +76,29 @@ export function ScreeningFlow() {
     );
   }
 
+  if (phase === 'assist') {
+    return (
+      <ReadingAssist
+        score={assistCtx?.score}
+        report={assistCtx?.report}
+        onBack={() => setPhase('results')}
+      />
+    );
+  }
+
   if (phase === 'results') {
     return (
       <div className="flex flex-col gap-6">
         <StepDots current="results" />
-        <ScreeningResults spiral={spiralResult} postural={null} onRestart={restart} />
+        <ScreeningResults
+          spiral={spiralResult}
+          postural={null}
+          onRestart={restart}
+          onOpenAssist={(ctx) => {
+            setAssistCtx(ctx);
+            setPhase('assist');
+          }}
+        />
       </div>
     );
   }

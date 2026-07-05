@@ -38,7 +38,7 @@ function Spectrum({ spectrum, peakFreq, colorClass }) {
   );
 }
 
-export function ScreeningResults({ spiral, postural, onRestart }) {
+export function ScreeningResults({ spiral, postural, onRestart, onOpenAssist }) {
   const score = useMemo(() => scoreScreening({ spiral, postural }), [spiral, postural]);
   const report = useMemo(() => buildReport({ spiral, postural, score }), [spiral, postural, score]);
   const questions = useMemo(() => doctorQuestions(score), [score]);
@@ -156,6 +156,22 @@ export function ScreeningResults({ spiral, postural, onRestart }) {
           NeuroScreen is an awareness tool, not a medical diagnosis.
         </p>
       </div>
+
+      {/* Personalized Reading Assist tuned to the score */}
+      <button
+        onClick={() => onOpenAssist && onOpenAssist({ score, report })}
+        className="text-left bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl shadow-md p-5 text-white active:scale-[0.99] transition touch-manipulation"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black">Open your Reading Assist →</h3>
+            <p className="text-sm text-indigo-100 mt-0.5">
+              Reading help sized to your result — larger text, high contrast, and read-aloud.
+            </p>
+          </div>
+          <span className="text-3xl">🔎</span>
+        </div>
+      </button>
 
       {/* Voice assistant (Vapi) */}
       <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-md p-5 text-white flex flex-col gap-3">

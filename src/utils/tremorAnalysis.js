@@ -324,6 +324,20 @@ function describeAmplitude(v, low, high) {
   return 'quite shaky';
 }
 
+/**
+ * Map a screening score to a reading-help profile. Higher tremor => bigger text,
+ * higher contrast, and (for the optional on-screen steadying) more strength.
+ */
+export function readingProfileFromScore(score) {
+  if (!score || score.band === 'low') {
+    return { fontSize: 26, contrast: 'default', level: 'Light help', strength: 0.1 };
+  }
+  if (score.band === 'monitor') {
+    return { fontSize: 40, contrast: 'default', level: 'Medium help', strength: 1.2 };
+  }
+  return { fontSize: 56, contrast: 'black', level: 'Strong help', strength: 2.8 };
+}
+
 export function doctorQuestions(score) {
   const base = [
     'Could my hand tremor be essential tremor, Parkinson’s, or something else?',
