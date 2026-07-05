@@ -1,16 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 
 const TAU = Math.PI * 2;
-const DEMO_AMPLITUDE = 16; // px — large enough that the shake is unmistakable
 
 export function StabilizedViewport({
   text,
   fontSize,
   contrastMode,
   assistActive,
-  offsetX,
-  offsetY,
+  motionX,
+  motionY,
   demoMode,
+  sensitivity,
   ttsPlay,
   ttsStop,
   ttsPlaying,
@@ -18,54 +18,46 @@ export function StabilizedViewport({
   ttsLoading,
   currentWordIndex,
 }) {
-  const outerRef = useRef(null); // shaking "hand" frame
-  const innerRef = useRef(null); // stabilized text wrapper
+  const innerRef = useRef(null); // wrapper we translate to show / cancel shake
 
   // Keep the latest live values so the animation loop reads fresh state
   // without tearing down and restarting on every prop change.
-  const liveRef = useRef({ assistActive, offsetX, offsetY, demoMode });
-  liveRef.current = { assistActive, offsetX, offsetY, demoMode };
+  const liveRef = useRef({ assistActive, motionX, motionY, demoMode, sensitivity });
+  liveRef.current = { assistActive, motionX, motionY, demoMode, sensitivity };
 
-  // Single requestAnimationFrame loop that drives the transforms directly on
-  // the DOM nodes. This keeps the motion buttery smooth (60fps) and avoids
-  // re-rendering the whole word list on every frame.
+  // One requestAnimationFrame loop drives the transform directly on the DOM
+  // node — smooth 60fps motion without re-rendering the whole word list, and no
+  // CSS transition (which would smear the shake).
   useEffect(() => {
     let rafId;
     let startTs;
 
     const loop = (ts) => {
       if (startTs === undefined) startTs = ts;
-      const { assistActive, offsetX, offsetY, demoMode } = liveRef.current;
-      const outer = outerRef.current;
       const inner = innerRef.current;
+      if (!inner) {
+        rafId = requestAnimationFrame(loop);
+        return;
+      }
 
-      if (demoMode) {
-        const s = (ts - startTs) / 1000; // seconds
-        // Layered sine waves (~5.5Hz base + harmonics) mimic an organic hand tremor.
-        const shakeX =
-          Math.sin(s * TAU * 5.5) * DEMO_AMPLITUDE +
-          Math.sin(s * TAU * 9.1) * DEMO_AMPLITUDE * 0.35;
-        const shakeY =
-          Math.cos(s * TAU * 4.9) * DEMO_AMPLITUDE +
-          Math.cos(s * TAU * 8.3) * DEMO_AMPLITUDE * 0.3;
+      const { assistActive, motionX, motionY, demoMode, sensitivity } = liveRef.current;
 
-        if (outer) outer.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
-        // When assist is ON we cancel the shake exactly, so the text sits still
-        // relative to the eyes while the frame keeps trembling.
-        if (inner) {
-          inner.style.transform = assistActive
-            ? `translate(${-shakeX}px, ${-shakeY}px)`
-            : 'translate(0px, 0px)';
-        }
+      if (assistActive) {
+        // TremorLens ON: the words are pinned perfectly still.
+        inner.style.transform = 'translate(0px, 0px)';
+      } else if (demoMode) {
+        // OFF + desktop demo: an organic simulated hand tremor moves the text so
+        // you can see how hard it is to read while shaking. Amplitude follows
+        // the Movement Sensitivity slider for instant, visible feedback.
+        const s = (ts - startTs) / 1000;
+        const amp = Math.max(2, Math.min(48, (typeof sensitivity === 'number' ? sensitivity : 2) * 7));
+        const shakeX = Math.sin(s * TAU * 5.5) * amp + Math.sin(s * TAU * 9.1) * amp * 0.35;
+        const shakeY = Math.cos(s * TAU * 4.9) * amp + Math.cos(s * TAU * 8.3) * amp * 0.3;
+        inner.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
       } else {
-        // Real device: the frame doesn't move; the text shifts by the sensor
-        // compensation offsets only when assist is active.
-        if (outer) outer.style.transform = '';
-        if (inner) {
-          inner.style.transform = assistActive
-            ? `translate(${offsetX}px, ${offsetY}px)`
-            : 'translate(0px, 0px)';
-        }
+        // OFF + real phone: the text follows the gyroscope, so tilting/shaking
+        // the phone visibly moves the words.
+        inner.style.transform = `translate(${motionX}px, ${motionY}px)`;
       }
 
       rafId = requestAnimationFrame(loop);
@@ -120,6 +112,9 @@ export function StabilizedViewport({
   // Split original text while keeping whitespace for correct layout rendering
   const tokens = text ? text.split(/(\s+)/) : [];
 
+  // TremorLens ON enlarges the text ~20% for extra readability.
+  const effectiveFontSize = assistActive ? Math.round(fontSize * 1.2) : fontSize;
+
   return (
     <div className="w-full flex flex-col gap-3 relative">
       <div className="flex flex-wrap justify-between items-center gap-2 px-1">
@@ -128,22 +123,21 @@ export function StabilizedViewport({
         {assistActive ? (
           <span className="flex items-center gap-2 bg-green-100 text-green-800 font-black text-sm px-3 py-1.5 rounded-full border border-green-300">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping" />
-            Stabilized — text held still
+            Steady &amp; enlarged — easy to read
           </span>
         ) : (
           <span className="flex items-center gap-2 bg-amber-100 text-amber-900 font-black text-sm px-3 py-1.5 rounded-full border border-amber-300 animate-pulse">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            {demoMode ? 'Shaking — no stabilization' : 'Stabilization off'}
+            Shaking — turn on TremorLens
           </span>
         )}
       </div>
 
-      {/* Main Viewport Container (the "hand" — trembles in demo mode) */}
+      {/* Main Viewport Container (stays still — a stable frame of reference) */}
       <div
-        ref={outerRef}
-        className={`w-full h-[400px] md:h-[500px] overflow-y-auto rounded-2xl p-6 md:p-8 border-2 shadow-inner select-none will-change-transform ${currentTheme.bg} ${currentTheme.border}`}
+        className={`w-full h-[400px] md:h-[500px] overflow-y-auto rounded-2xl p-6 md:p-8 border-2 shadow-inner select-none ${currentTheme.bg} ${currentTheme.border}`}
       >
-        {/* Stabilized Text Wrapper */}
+        {/* Text Wrapper — this is what shakes (OFF) or holds still (ON) */}
         <div ref={innerRef} className="w-full min-h-full leading-relaxed select-text will-change-transform">
           {!text ? (
             <p className="text-neutral-400 italic text-center text-xl mt-12">
@@ -152,7 +146,7 @@ export function StabilizedViewport({
           ) : (
             <div
               className="whitespace-pre-wrap break-words"
-              style={{ fontSize: `${fontSize}px` }}
+              style={{ fontSize: `${effectiveFontSize}px`, transition: 'font-size 0.25s ease' }}
             >
               {tokens.map((token, idx) => {
                 const isWord = !/^\s+$/.test(token);

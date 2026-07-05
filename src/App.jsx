@@ -14,7 +14,7 @@ By using your device's built-in orientation sensors, TremorLens moves the text i
 
 Instructions:
 1. Toggle the big "Tremor Assist" button to turn on stabilization.
-2. If you are reading on a computer, turn on "Demo Mode" to simulate a hand tremor. Watch how the text remains perfectly still while the background shakes!
+2. If you are reading on a computer, turn on "Demo Mode" to simulate a hand tremor. With Tremor Assist OFF the words jitter around; turn it ON and the words instantly lock still and grow larger for easy reading!
 3. Tap "Read Aloud" or "Speak" below to hear the text. Spoken words will be highlighted in yellow.
 4. Go to the "Exercises" tab to practice holding your device steady with our stability training game.`;
 
@@ -27,8 +27,8 @@ export default function App() {
 
   // Tremor compensation hook
   const {
-    offsetX,
-    offsetY,
+    motionX,
+    motionY,
     isActive: assistActive,
     toggle: toggleAssist,
     sensitivity,
@@ -180,9 +180,10 @@ export default function App() {
                 fontSize={fontSize}
                 contrastMode={contrastMode}
                 assistActive={assistActive}
-                offsetX={offsetX}
-                offsetY={offsetY}
+                motionX={motionX}
+                motionY={motionY}
                 demoMode={demoMode}
+                sensitivity={sensitivity}
                 ttsPlay={handleTTSPlay}
                 ttsStop={ttsStop}
                 ttsPlaying={ttsPlaying}
@@ -201,7 +202,7 @@ export default function App() {
 
         {/* Exercises Tab (Fully interactive Stability Training game) */}
         {activeTab === 'exercises' && (
-          <StabilityExercise demoMode={demoMode} offsetX={offsetX} offsetY={offsetY} />
+          <StabilityExercise demoMode={demoMode} motionX={motionX} motionY={motionY} />
         )}
       </main>
 
@@ -222,7 +223,7 @@ export default function App() {
   Interactive Stability Training Mini-Game Component
   Objective: Hold the device steady to keep the dot centered inside the target ring.
 */
-function StabilityExercise({ demoMode, offsetX, offsetY }) {
+function StabilityExercise({ demoMode, motionX, motionY }) {
   const [dotPos, setDotPos] = useState({ x: 0, y: 0 });
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -243,8 +244,8 @@ function StabilityExercise({ demoMode, offsetX, offsetY }) {
       yVal = (Math.random() - 0.5) * 45;
     } else {
       // Scale sensors to fit game container bounds
-      xVal = offsetX * 2.5;
-      yVal = offsetY * 2.5;
+      xVal = motionX * 2.5;
+      yVal = motionY * 2.5;
     }
 
     setDotPos({ x: xVal, y: yVal });
@@ -255,7 +256,7 @@ function StabilityExercise({ demoMode, offsetX, offsetY }) {
       // Inside target ring -> Increase stability points!
       setScore((prev) => prev + 1);
     }
-  }, [offsetX, offsetY, isPlaying, demoMode]);
+  }, [motionX, motionY, isPlaying, demoMode]);
 
   // Round loop timer
   useEffect(() => {

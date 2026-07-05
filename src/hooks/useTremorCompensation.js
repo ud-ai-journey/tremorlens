@@ -4,15 +4,16 @@ import { useDeviceMotion } from './useDeviceMotion';
 export function useTremorCompensation(demoMode = false) {
   const { offset, permission, requestPermission } = useDeviceMotion(demoMode);
 
-  // Initialize active state based on permission state
   const [isActive, setIsActive] = useState(false);
-  const [sensitivity, setSensitivity] = useState(0.15); // Default to highly dampened (0.15x)
-  const [offsets, setOffsets] = useState({ x: 0, y: 0 });
+  // How strongly the text reacts to phone movement WHEN ASSIST IS OFF.
+  // (When assist is ON the text is pinned still regardless of this value.)
+  const [sensitivity, setSensitivity] = useState(2.0);
+  const [motion, setMotion] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (demoMode) {
-      // Start the demo from the "shaking" state so the user can flip assist ON
-      // and immediately see the text lock into place.
+      // Demo starts from the "shaking" state so the user can flip assist ON
+      // and immediately watch the text lock into place.
       setIsActive(false);
     } else if (permission === 'granted') {
       // Real device: begin stabilizing as soon as sensor access is allowed.
@@ -20,9 +21,12 @@ export function useTremorCompensation(demoMode = false) {
     }
   }, [permission, demoMode]);
 
-  // Keep latest raw offsets in a ref
-  const rawOffsetRef = useRef({ beta: 0, gamma: 0 });
-  rawOffsetRef.current = offset;
+  // Keep latest raw sensor + sensitivity in refs for the animation loop.
+  const rawRef = useRef({ beta: 0, gamma: 0 });
+  rawRef.current = offset;
+  const sensRef = useRef(sensitivity);
+  sensRef.current = sensitivity;
+  const smoothRef = useRef({ x: 0, y: 0 });
 
   const toggle = async () => {
     if (permission !== 'granted') {
@@ -31,75 +35,52 @@ export function useTremorCompensation(demoMode = false) {
         setIsActive(true);
       }
     } else {
-      setIsActive(prev => !prev);
+      setIsActive((prev) => !prev);
     }
   };
 
-  const currentOffsetsRef = useRef({ x: 0, y: 0 });
-
+  // Continuously translate raw gyroscope deltas into a smoothed "how far the
+  // text should follow the hand" signal. This drives the OFF-state shake on a
+  // real device. Demo mode generates its own simulated tremor in the viewport,
+  // so this loop stays idle there.
   useEffect(() => {
-    let animationFrameId;
+    if (demoMode) {
+      smoothRef.current = { x: 0, y: 0 };
+      setMotion({ x: 0, y: 0 });
+      return;
+    }
 
+    let rafId;
     const tick = () => {
-      // Calculate dynamic tremor magnitude
-      const currentBeta = rawOffsetRef.current.beta || 0;
-      const currentGamma = rawOffsetRef.current.gamma || 0;
-      const magnitude = Math.sqrt(currentBeta * currentBeta + currentGamma * currentGamma);
+      const gamma = rawRef.current.gamma || 0; // left/right tilt -> X
+      const beta = rawRef.current.beta || 0; // front/back tilt -> Y
+      const mult = typeof sensRef.current === 'number' ? sensRef.current : 2.0;
 
-      // 1. Auto-Activation: If movement magnitude is above noise threshold, stabilize
-      const isMoving = magnitude > 0.15;
+      const targetX = gamma * mult;
+      const targetY = beta * mult;
 
-      if (isActive && isMoving) {
-        // 2. Auto-Sensitivity: Scale multiplier dynamically based on current tremor strength
-        let multiplier = 2.0; // Default baseline
-        
-        if (typeof sensitivity === 'number') {
-          multiplier = sensitivity;
-        } else if (sensitivity === 'auto') {
-          multiplier = Math.max(1.0, Math.min(4.5, magnitude * 0.7));
-        } else if (sensitivity === 'low') {
-          multiplier = 1.0;
-        } else if (sensitivity === 'high') {
-          multiplier = 4.0;
-        }
+      // Exponential smoothing so the text glides with the hand instead of snapping.
+      smoothRef.current.x = smoothRef.current.x * 0.6 + targetX * 0.4;
+      smoothRef.current.y = smoothRef.current.y * 0.6 + targetY * 0.4;
 
-        // Target offset values
-        const targetX = currentGamma * multiplier;
-        const targetY = currentBeta * multiplier;
+      const x = Math.max(-70, Math.min(70, smoothRef.current.x));
+      const y = Math.max(-70, Math.min(70, smoothRef.current.y));
 
-        // Apply Linear Interpolation (Lerp) to smooth the jumps
-        // 0.65 retains 65% of the old position, sliding slowly into the remaining 35%
-        const smoothedX = currentOffsetsRef.current.x * 0.65 + targetX * 0.35;
-        const smoothedY = currentOffsetsRef.current.y * 0.65 + targetY * 0.35;
+      // Skip no-op state updates so a resting phone doesn't re-render 60x/sec.
+      setMotion((prev) =>
+        Math.abs(prev.x - x) < 0.05 && Math.abs(prev.y - y) < 0.05 ? prev : { x, y }
+      );
 
-        // Clamp to ±50px
-        const clampedX = Math.max(-50, Math.min(50, smoothedX));
-        const clampedY = Math.max(-50, Math.min(50, smoothedY));
-
-        // Save current positions for next frame
-        currentOffsetsRef.current = { x: clampedX, y: clampedY };
-        setOffsets({ x: clampedX, y: clampedY });
-      } else {
-        // Slowly return back to center (0,0) when resting
-        const returnX = currentOffsetsRef.current.x * 0.8;
-        const returnY = currentOffsetsRef.current.y * 0.8;
-        currentOffsetsRef.current = { x: returnX, y: returnY };
-        setOffsets({ x: returnX, y: returnY });
-      }
-
-      animationFrameId = requestAnimationFrame(tick);
+      rafId = requestAnimationFrame(tick);
     };
 
-    animationFrameId = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [isActive, sensitivity]);
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [demoMode]);
 
   return {
-    offsetX: offsets.x,
-    offsetY: offsets.y,
+    motionX: motion.x,
+    motionY: motion.y,
     isActive,
     toggle,
     sensitivity,

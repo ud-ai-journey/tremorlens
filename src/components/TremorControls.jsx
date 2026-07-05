@@ -9,9 +9,9 @@ export function TremorControls({
   toggleDemoMode,
 }) {
   const sensitivityOptions = [
-    { id: 0.15, label: 'Calm (Low)' },
-    { id: 0.8, label: 'Moderate' },
-    { id: 'auto', label: 'Auto (Detect)' },
+    { id: 1.0, label: 'Gentle' },
+    { id: 2.5, label: 'Medium' },
+    { id: 5.0, label: 'Strong' },
   ];
 
   return (
@@ -41,19 +41,22 @@ export function TremorControls({
         </button>
         <p className="text-xs text-neutral-500 font-medium text-center">
           {isActive
-            ? 'Orientation sensors are compensating for movement. Hold your phone naturally.'
-            : 'Turn Tremor Assist ON to stabilize the screen text using your phone sensors.'}
+            ? 'Text is held still and enlarged for easy reading. Hold your phone naturally.'
+            : 'Turn Tremor Assist ON to lock the text still. While OFF, the text follows your movement so you can see the shake.'}
         </p>
       </div>
 
       {/* Sensitivity Picker */}
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm font-bold text-blue-900">Compensation Strength</span>
+          <span className="text-sm font-bold text-blue-900">Movement Sensitivity</span>
           <span className="text-xs font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
             {typeof sensitivity === 'number' ? `${sensitivity.toFixed(1)}x` : 'Auto'}
           </span>
         </div>
+        <p className="text-[11px] text-neutral-400 font-medium -mt-1">
+          How much the text moves with your hand while Tremor Assist is OFF.
+        </p>
         
         {/* Preset Buttons */}
         <div className="grid grid-cols-3 gap-2">
