@@ -92,9 +92,9 @@ function About() {
       <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-6 flex flex-col gap-3">
         <h3 className="text-lg font-black text-blue-900">How it measures tremor</h3>
         <ul className="flex flex-col gap-2 text-neutral-700">
-          <li><strong>Spiral test:</strong> tracing an Archimedes spiral — a long-standing clinical tool — reveals the tiny wobble tremor adds to an otherwise smooth line.</li>
-          <li><strong>Holding test:</strong> the phone's accelerometer records the fine movements of your hand while you hold it still.</li>
-          <li><strong>Frequency analysis:</strong> we find your dominant shaking rhythm. Most tremors sit between 4–12 Hz (rest tremor ~4–6 Hz, action tremor ~4–12 Hz).</li>
+          <li><strong>Spiral test:</strong> tracing an Archimedes spiral — a long-standing clinical tool — reveals the tiny wobble tremor adds to an otherwise smooth line. We record your finger's path and compare it to a perfectly smooth spiral.</li>
+          <li><strong>Frequency analysis:</strong> we find your dominant shaking rhythm from that wobble. Most tremors sit between 4–12 Hz (rest tremor ~4–6 Hz, action tremor ~4–12 Hz).</li>
+          <li><strong>Plain-language result:</strong> a simple 0–100 index, an explanation, and questions to bring to your doctor.</li>
         </ul>
       </div>
 

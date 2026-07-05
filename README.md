@@ -16,16 +16,15 @@ Built with **React 18, Vite, Tailwind CSS**, and **Vapi** (voice assistant).
 
 1. **Spiral test** — the user traces an Archimedes spiral (a long-standing
    clinical tremor test) with a finger. We record timed touch points and measure
-   how much the line wobbles off a smooth spiral.
-2. **Holding test** — the phone's accelerometer records the fine movements of the
-   hand while held still for 10 seconds.
-3. **Frequency analysis** — a windowed DFT finds the dominant tremor frequency
-   (most tremors sit at 4–12 Hz) and amplitude for each test.
-4. **Plain-language report** — a 0–100 screening index, a risk band, an
+   how much the line wobbles off a smooth spiral. Works identically with touch on
+   a phone or a mouse on a laptop.
+2. **Frequency analysis** — a windowed DFT finds the dominant tremor frequency
+   (most tremors sit at 4–12 Hz) and amplitude from the wobble.
+3. **Plain-language report** — a 0–100 screening index, a risk band, an
    explanation, and "questions to ask your doctor."
-5. **Voice** — a Vapi voice assistant reads the results and answers spoken
+4. **Voice** — a Vapi voice assistant reads the results and answers spoken
    questions (falls back to browser text-to-speech if not configured).
-6. **History** — results are saved locally so trends can be tracked over time.
+5. **History** — results are saved locally so trends can be tracked over time.
 
 ## How the tremor math works
 
@@ -43,9 +42,8 @@ See [`src/utils/tremorAnalysis.js`](src/utils/tremorAnalysis.js).
 ```text
 /src
   /components
-    ScreeningFlow.jsx      # intro -> spiral -> holding -> results, with voice guidance
+    ScreeningFlow.jsx      # intro -> spiral -> results, with spoken guidance
     SpiralTest.jsx         # Archimedes spiral tracing canvas
-    PosturalTest.jsx       # 10s accelerometer capture (+ desktop demo fallback)
     ScreeningResults.jsx   # score, spectrum, report, doctor questions, voice, save
     HistoryTab.jsx         # saved screenings + trend
     Header.jsx             # nav + PWA install
@@ -72,7 +70,8 @@ assistant.
 
 ## Testing
 
-- **Desktop:** the spiral test works with a mouse; the holding test has a
-  "Run demo tremor" button (simulated data) since laptops have no accelerometer.
-- **Phone (real sensors):** open the HTTPS URL, allow motion access when prompted,
-  and run both tests. iOS requires the in-app permission tap.
+- **Desktop:** trace the spiral with a mouse — no sensors or permissions needed.
+- **Phone:** open the URL and trace the spiral with a finger.
+
+The spiral test needs no device motion sensors, so it demos reliably anywhere
+(including a judge's laptop).
