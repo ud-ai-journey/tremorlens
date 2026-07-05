@@ -2,9 +2,9 @@ import React from 'react';
 
 export function Header({ activeTab, setActiveTab, installPrompt, triggerInstall }) {
   const tabs = [
-    { id: 'read', label: 'Read' },
-    { id: 'reports', label: 'Reports' },
-    { id: 'exercises', label: 'Exercises' },
+    { id: 'screen', label: 'Screen' },
+    { id: 'history', label: 'History' },
+    { id: 'about', label: 'About' },
   ];
 
   return (
@@ -34,8 +34,8 @@ export function Header({ activeTab, setActiveTab, installPrompt, triggerInstall 
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight select-none">TremorLens</h1>
-            <p className="text-xs text-blue-200 font-medium">Built for shaking hands</p>
+            <h1 className="text-2xl font-bold tracking-tight select-none">NeuroScreen</h1>
+            <p className="text-xs text-blue-200 font-medium">Early tremor check for seniors</p>
           </div>
         </div>
 

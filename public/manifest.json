@@ -1,6 +1,6 @@
 {
-  "short_name": "TremorLens",
-  "name": "TremorLens - Shaking Hands Reading Assist",
+  "short_name": "NeuroScreen",
+  "name": "NeuroScreen - Early Tremor Check",
   "icons": [
     {
       "src": "icon-192.png",
@@ -19,14 +19,5 @@
   "background_color": "#E8F4F8",
   "theme_color": "#1E40AF",
   "display": "standalone",
-  "orientation": "any",
-  "share_target": {
-    "action": "/",
-    "method": "GET",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url"
-    }
-  }
+  "orientation": "any"
 }

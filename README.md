@@ -1,78 +1,78 @@
-# TremorLens 🔬👁️
+# NeuroScreen 🌀🧠
 
-TremorLens is an accessibility-first Progressive Web Application (PWA) built using **React 18, Vite, and Tailwind CSS**. It is designed specifically to help individuals with hand tremors read text on their screens comfortably.
+**Early, at-home tremor screening for seniors.** NeuroScreen turns a phone into a
+simple 2-minute check for hand tremor — the kind that can be an early sign of
+essential tremor or Parkinson's — and explains the result in plain language you
+can share with a doctor.
 
-It leverages physical device orientation sensor data to dynamically move reading container contents in the opposite direction of the hand's tremors in real-time, effectively keeping the text stationary relative to the user's eyes.
+Built with **React 18, Vite, Tailwind CSS**, and **Vapi** (voice assistant).
 
-## Key Features
-
-1. **Tremor Stabilization Assist**: Real-time compensation offsets computed at 60fps via `requestAnimationFrame` using device sensors.
-2. **Text-To-Speech with Highlighting**: Synthesizes speech from content while providing real-time word-by-word visual highlighting.
-3. **Accessibility Typography & Contrast Panels**: Large font adjustments (24px to 72px) with extra-forgiving touch adjustments, and contrast presets (Calm Blue, Black on Yellow, Dark Blue, White on Black).
-4. **Desktop Demo Mode Simulator**: Shakes the viewport elements artificially, showing physical compensation in real-time so judges can see the compensation working without using mobile devices.
-5. **Stability Trainer Exercises**: A fun interactive training mini-game using gyroscope sensors to practice motor stability.
-6. **Progressive Web App (PWA)**: Installable, standalone experience on iOS and Android with custom registration prompts and offline service worker caching.
+> ⚠️ NeuroScreen is a wellness / awareness tool. It does **not** diagnose any
+> medical condition. Concerning results should be reviewed by a doctor.
 
 ---
 
-## File Structure
+## What it does
+
+1. **Spiral test** — the user traces an Archimedes spiral (a long-standing
+   clinical tremor test) with a finger. We record timed touch points and measure
+   how much the line wobbles off a smooth spiral.
+2. **Holding test** — the phone's accelerometer records the fine movements of the
+   hand while held still for 10 seconds.
+3. **Frequency analysis** — a windowed DFT finds the dominant tremor frequency
+   (most tremors sit at 4–12 Hz) and amplitude for each test.
+4. **Plain-language report** — a 0–100 screening index, a risk band, an
+   explanation, and "questions to ask your doctor."
+5. **Voice** — a Vapi voice assistant reads the results and answers spoken
+   questions (falls back to browser text-to-speech if not configured).
+6. **History** — results are saved locally so trends can be tracked over time.
+
+## How the tremor math works
+
+- Irregular samples are resampled onto a uniform grid (`resampleUniform`).
+- The signal is de-trended and Hann-windowed, then a direct DFT scans the 2–14 Hz
+  band (`tremorSpectrum`) to find the peak frequency and band power.
+- The spiral test fits `r = a + b·θ` (least squares) and analyzes the radial
+  residual — where tremor shows up as a high-frequency wobble.
+- Scores are combined into a conservative 0–100 index (`scoreScreening`).
+
+See [`src/utils/tremorAnalysis.js`](src/utils/tremorAnalysis.js).
+
+## File structure
 
 ```text
 /src
   /components
-    StabilizedViewport.jsx    # Text layout wrapper translating opposite to hand tremor
-    TextInput.jsx             # Source text textarea with clipboard paste & clear triggers
-    TremorControls.jsx        # Tremor assist toggler, strength, and simulator buttons
-    AccessibilityPanel.jsx    # Font size range inputs + Contrast mode buttons
-    Header.jsx                # Layout navigation tabs & install prompt integration
+    ScreeningFlow.jsx      # intro -> spiral -> holding -> results, with voice guidance
+    SpiralTest.jsx         # Archimedes spiral tracing canvas
+    PosturalTest.jsx       # 10s accelerometer capture (+ desktop demo fallback)
+    ScreeningResults.jsx   # score, spectrum, report, doctor questions, voice, save
+    HistoryTab.jsx         # saved screenings + trend
+    Header.jsx             # nav + PWA install
   /hooks
-    useDeviceMotion.js        # Tracks device orientation, computes averages & offsets
-    useTremorCompensation.js  # Filters, scales, and clamps offsets using requestAnimationFrame
-    useTextToSpeech.js        # Synthesizes audio and reports word index speech boundaries
-  App.jsx                     # Global state, tabs layout, reports dashboard
-  main.jsx                    # React mounting & Service Worker registrations
-  index.css                   # Custom Tailwind directives & slide animations
-/public
-  manifest.json               # Standalone manifest file for PWA setups
-  sw.js                       # Simple offline cache-first service worker
-  icon-192.png                # App icon 192x192 PNG
-  icon-512.png                # App icon 512x512 PNG
-index.html                    # Root index template loadingOutfit fonts and manifest
-vite.config.js                # Build plugins & configs
-vercel.json                   # Route rules redirecting requests for SPA structures
-package.json                  # React 18, Tailwind CSS dependencies
-README.md                     # Project documentation
+    useVapi.js             # Vapi web SDK wrapper (graceful fallback)
+    useTextToSpeech.js     # browser TTS (read-aloud + step guidance)
+  /utils
+    tremorAnalysis.js      # DFT, spiral/postural metrics, scoring, report text
+    screeningStore.js      # localStorage persistence
+  App.jsx                  # tabs: Screen / History / About
 ```
 
----
+## Setup
 
-## Setup & Running
-
-### Installation
-Run the following commands to install dependencies:
 ```bash
 npm install
-```
-
-### Run Locally (Development)
-Start the Vite dev server:
-```bash
-npm run dev
-```
-
-### Production Build
-Create the production bundle:
-```bash
+npm run dev        # served with --host for phone testing on your network
 npm run build
 ```
 
----
+Environment variables are **optional** — see [`.env.example`](.env.example). The
+app works fully offline without keys; add a Vapi public key to enable the spoken
+assistant.
 
-## How to Test the Tremor Compensation (Without a Phone)
+## Testing
 
-1. Run the app on your computer (`npm run dev`) and open the browser.
-2. Scroll to **Tremor Settings** on the left column.
-3. Click the **SIMULATOR ON** button to toggle **Demo Mode**.
-4. *Observation*: The reading text viewport on the right will begin to shake/tremble.
-5. Next, click the big **Tremor Assist: OFF** button to toggle it **ACTIVE**.
-6. *Observation*: The text inside the viewport immediately becomes static and easy to read, while the background and borders of the viewport continue to shake. This demonstrates how the compensation offsets perfectly cancel out the hand tremor!
+- **Desktop:** the spiral test works with a mouse; the holding test has a
+  "Run demo tremor" button (simulated data) since laptops have no accelerometer.
+- **Phone (real sensors):** open the HTTPS URL, allow motion access when prompted,
+  and run both tests. iOS requires the in-app permission tap.
