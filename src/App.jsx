@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { ScreeningFlow } from './components/ScreeningFlow';
 import { ExercisesTab } from './components/ExercisesTab';
+import { ReadingAssist } from './components/ReadingAssist';
 import { HistoryTab } from './components/HistoryTab';
 
 export default function App() {
@@ -62,6 +63,7 @@ export default function App() {
         )}
 
         {activeTab === 'screen' && <ScreeningFlow />}
+        {activeTab === 'read' && <ReadingAssist />}
         {activeTab === 'exercises' && <ExercisesTab />}
         {activeTab === 'history' && <HistoryTab />}
         {activeTab === 'about' && <About />}

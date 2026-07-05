@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { readingProfileFromScore } from '../utils/tremorAnalysis';
+import { ocrConfigured, fileToDataUrl, extractTextFromImage } from '../utils/ocr';
 
 /**
  * Personalized reading help, auto-tuned by the tremor screening score.
@@ -24,10 +25,38 @@ export function ReadingAssist({ score, report, onBack }) {
   const [contrast, setContrast] = useState(profile.contrast);
   const [text, setText] = useState(report || SAMPLE);
   const [editing, setEditing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const fileInputRef = useRef(null);
   const tts = useTextToSpeech();
 
   const theme = THEMES[contrast] || THEMES.default;
   const tokens = text ? text.split(/(\s+)/) : [];
+
+  const handleScanFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    setScanError('');
+    setScanning(true);
+    tts.stop();
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const extracted = await extractTextFromImage(dataUrl);
+      if (!extracted || extracted.toLowerCase() === 'no text found.') {
+        setScanError('No readable text was found in that photo. Try again with better lighting.');
+      } else {
+        setText(extracted);
+        setEditing(false);
+        setFontSize((f) => Math.max(f, 40)); // labels read better large
+      }
+    } catch (err) {
+      console.error('OCR failed:', err);
+      setScanError(err?.message || 'Could not read that photo.');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-4">
@@ -39,12 +68,14 @@ export function ReadingAssist({ score, report, onBack }) {
             Tuned to your result: <strong>{profile.level}</strong>
           </p>
         </div>
-        <button
-          onClick={onBack}
-          className="min-h-[44px] px-4 bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 text-neutral-700 font-bold rounded-xl text-sm active:scale-95 transition touch-manipulation"
-        >
-          ← Back
-        </button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="min-h-[44px] px-4 bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 text-neutral-700 font-bold rounded-xl text-sm active:scale-95 transition touch-manipulation"
+          >
+            ← Back
+          </button>
+        )}
       </div>
 
       {/* Controls */}
@@ -103,6 +134,37 @@ export function ReadingAssist({ score, report, onBack }) {
             {editing ? 'Done' : 'Change text'}
           </button>
         </div>
+
+        {/* Scan a label/letter with the camera (GPT-4o vision) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleScanFile}
+          className="hidden"
+        />
+        <button
+          onClick={() => (ocrConfigured ? fileInputRef.current?.click() : null)}
+          disabled={scanning || !ocrConfigured}
+          className={`min-h-[52px] font-black rounded-xl transition touch-manipulation ${
+            !ocrConfigured
+              ? 'bg-neutral-100 text-neutral-400 border-2 border-neutral-200 cursor-not-allowed'
+              : scanning
+                ? 'bg-indigo-300 text-white'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 shadow'
+          }`}
+        >
+          {scanning ? 'Reading photo…' : '📷 Scan a label or letter'}
+        </button>
+        {!ocrConfigured && (
+          <p className="text-[11px] text-neutral-400 font-medium">
+            Photo reading needs an OpenAI key (VITE_OPENAI_API_KEY). See .env.example.
+          </p>
+        )}
+        {scanError && (
+          <p className="text-xs text-red-600 font-semibold">{scanError}</p>
+        )}
 
         {editing && (
           <textarea

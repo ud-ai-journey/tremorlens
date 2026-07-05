@@ -3,6 +3,7 @@ import React from 'react';
 export function Header({ activeTab, setActiveTab, installPrompt, triggerInstall }) {
   const tabs = [
     { id: 'screen', label: 'Screen' },
+    { id: 'read', label: 'Read' },
     { id: 'exercises', label: 'Exercises' },
     { id: 'history', label: 'History' },
     { id: 'about', label: 'About' },
@@ -55,14 +56,14 @@ export function Header({ activeTab, setActiveTab, installPrompt, triggerInstall 
             </button>
           )}
 
-          <nav className="flex bg-blue-950/50 rounded-xl p-1 gap-1" aria-label="Main navigation">
+          <nav className="flex flex-wrap justify-end bg-blue-950/50 rounded-xl p-1 gap-1" aria-label="Main navigation">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 text-base font-bold rounded-lg transition duration-200 min-h-[48px] min-w-[80px] flex items-center justify-center touch-manipulation ${
+                  className={`px-3 py-2 text-sm sm:text-base font-bold rounded-lg transition duration-200 min-h-[44px] min-w-[64px] flex items-center justify-center touch-manipulation ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-blue-200 hover:text-white hover:bg-blue-800/30'
