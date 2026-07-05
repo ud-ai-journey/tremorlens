@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { readingProfileFromScore } from '../utils/tremorAnalysis';
-import { ocrConfigured, fileToDataUrl, extractTextFromImage } from '../utils/ocr';
+import { ocrConfigured, fileToDataUrl, extractTextFromImage, describeImage } from '../utils/ocr';
 
 /**
  * Personalized reading help, auto-tuned by the tremor screening score.
@@ -26,35 +26,66 @@ export function ReadingAssist({ score, report, onBack }) {
   const [text, setText] = useState(report || SAMPLE);
   const [editing, setEditing] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanMode, setScanMode] = useState(''); // 'extract' | 'explain' while running
   const [scanError, setScanError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const modeRef = useRef('extract');
   const tts = useTextToSpeech();
 
   const theme = THEMES[contrast] || THEMES.default;
   const tokens = text ? text.split(/(\s+)/) : [];
 
-  const handleScanFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file
-    if (!file) return;
+  const processImageFile = async (file, mode) => {
+    if (!file || !ocrConfigured) return;
     setScanError('');
+    setScanMode(mode);
     setScanning(true);
     tts.stop();
     try {
       const dataUrl = await fileToDataUrl(file);
-      const extracted = await extractTextFromImage(dataUrl);
-      if (!extracted || extracted.toLowerCase() === 'no text found.') {
-        setScanError('No readable text was found in that photo. Try again with better lighting.');
-      } else {
-        setText(extracted);
+      if (mode === 'explain') {
+        const explanation = await describeImage(dataUrl);
+        setText(explanation || 'Sorry, I could not describe that photo.');
         setEditing(false);
-        setFontSize((f) => Math.max(f, 40)); // labels read better large
+        setFontSize((f) => Math.max(f, 34));
+      } else {
+        const extracted = await extractTextFromImage(dataUrl);
+        if (!extracted || extracted.toLowerCase() === 'no text found.') {
+          setScanError('No readable text was found in that photo. Try again with better lighting.');
+        } else {
+          setText(extracted);
+          setEditing(false);
+          setFontSize((f) => Math.max(f, 40)); // labels read better large
+        }
       }
     } catch (err) {
-      console.error('OCR failed:', err);
-      setScanError(err?.message || 'Could not read that photo.');
+      console.error('Image processing failed:', err);
+      setScanError(err?.message || 'Could not process that photo.');
     } finally {
       setScanning(false);
+      setScanMode('');
+    }
+  };
+
+  const handleFileInput = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    processImageFile(file, modeRef.current);
+  };
+
+  const openPicker = (mode) => {
+    if (!ocrConfigured) return;
+    modeRef.current = mode;
+    fileInputRef.current?.click();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      processImageFile(file, 'explain'); // dropping a photo = "get to know more about it"
     }
   };
 
@@ -135,31 +166,43 @@ export function ReadingAssist({ score, report, onBack }) {
           </button>
         </div>
 
-        {/* Scan a label/letter with the camera (GPT-4o vision) */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleScanFile}
-          className="hidden"
-        />
-        <button
-          onClick={() => (ocrConfigured ? fileInputRef.current?.click() : null)}
-          disabled={scanning || !ocrConfigured}
-          className={`min-h-[52px] font-black rounded-xl transition touch-manipulation ${
-            !ocrConfigured
-              ? 'bg-neutral-100 text-neutral-400 border-2 border-neutral-200 cursor-not-allowed'
-              : scanning
-                ? 'bg-indigo-300 text-white'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 shadow'
-          }`}
-        >
-          {scanning ? 'Reading photo…' : '📷 Scan a label or letter'}
-        </button>
-        {!ocrConfigured && (
+        {/* Scan text (OCR) or explain a photo — GPT-4o vision */}
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileInput} className="hidden" />
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => openPicker('extract')}
+            disabled={scanning || !ocrConfigured}
+            className={`min-h-[52px] font-black rounded-xl transition touch-manipulation ${
+              !ocrConfigured
+                ? 'bg-neutral-100 text-neutral-400 border-2 border-neutral-200 cursor-not-allowed'
+                : scanning
+                  ? 'bg-indigo-300 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 shadow'
+            }`}
+          >
+            {scanning && scanMode === 'extract' ? 'Reading…' : '📷 Scan text'}
+          </button>
+          <button
+            onClick={() => openPicker('explain')}
+            disabled={scanning || !ocrConfigured}
+            className={`min-h-[52px] font-black rounded-xl transition touch-manipulation ${
+              !ocrConfigured
+                ? 'bg-neutral-100 text-neutral-400 border-2 border-neutral-200 cursor-not-allowed'
+                : scanning
+                  ? 'bg-purple-300 text-white'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white active:scale-95 shadow'
+            }`}
+          >
+            {scanning && scanMode === 'explain' ? 'Looking…' : '🔍 Explain a photo'}
+          </button>
+        </div>
+        {ocrConfigured ? (
           <p className="text-[11px] text-neutral-400 font-medium">
-            Photo reading needs an OpenAI key (VITE_OPENAI_API_KEY). See .env.example.
+            Tip: you can also drag a photo onto the reading area below to learn about it.
+          </p>
+        ) : (
+          <p className="text-[11px] text-neutral-400 font-medium">
+            Photo features need an OpenAI key (VITE_OPENAI_API_KEY). See .env.example.
           </p>
         )}
         {scanError && (
@@ -178,7 +221,23 @@ export function ReadingAssist({ score, report, onBack }) {
       </div>
 
       {/* Reading area */}
-      <div className={`rounded-2xl border-2 border-blue-200 shadow-inner p-6 min-h-[300px] ${theme.bg}`}>
+      <div
+        onDragOver={(e) => {
+          if (!ocrConfigured) return;
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        className={`relative rounded-2xl border-2 shadow-inner p-6 min-h-[300px] transition ${theme.bg} ${
+          dragOver ? 'border-purple-500 ring-4 ring-purple-200' : 'border-blue-200'
+        }`}
+      >
+        {dragOver && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-purple-50/80 rounded-2xl pointer-events-none">
+            <span className="text-purple-700 font-black text-lg">Drop the photo to learn about it</span>
+          </div>
+        )}
         <div className={`whitespace-pre-wrap break-words leading-relaxed ${theme.text}`} style={{ fontSize: `${fontSize}px` }}>
           {tokens.map((tok, i) => {
             if (/^\s+$/.test(tok)) return <span key={i}>{tok}</span>;
