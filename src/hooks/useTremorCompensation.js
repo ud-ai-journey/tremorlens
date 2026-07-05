@@ -10,10 +10,15 @@ export function useTremorCompensation(demoMode = false) {
   const [offsets, setOffsets] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    if (permission === 'granted') {
+    if (demoMode) {
+      // Start the demo from the "shaking" state so the user can flip assist ON
+      // and immediately see the text lock into place.
+      setIsActive(false);
+    } else if (permission === 'granted') {
+      // Real device: begin stabilizing as soon as sensor access is allowed.
       setIsActive(true);
     }
-  }, [permission]);
+  }, [permission, demoMode]);
 
   // Keep latest raw offsets in a ref
   const rawOffsetRef = useRef({ beta: 0, gamma: 0 });

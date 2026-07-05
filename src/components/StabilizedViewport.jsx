@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
+
+const TAU = Math.PI * 2;
+const DEMO_AMPLITUDE = 16; // px — large enough that the shake is unmistakable
 
 export function StabilizedViewport({
   text,
@@ -15,26 +18,62 @@ export function StabilizedViewport({
   ttsLoading,
   currentWordIndex,
 }) {
-  const [shake, setShake] = useState({ x: 0, y: 0 });
-  const viewportRef = useRef(null);
+  const outerRef = useRef(null); // shaking "hand" frame
+  const innerRef = useRef(null); // stabilized text wrapper
 
-  // Demo Mode Tremor Simulation (CSS / JS transform updates)
+  // Keep the latest live values so the animation loop reads fresh state
+  // without tearing down and restarting on every prop change.
+  const liveRef = useRef({ assistActive, offsetX, offsetY, demoMode });
+  liveRef.current = { assistActive, offsetX, offsetY, demoMode };
+
+  // Single requestAnimationFrame loop that drives the transforms directly on
+  // the DOM nodes. This keeps the motion buttery smooth (60fps) and avoids
+  // re-rendering the whole word list on every frame.
   useEffect(() => {
-    if (demoMode) {
-      const intervalId = setInterval(() => {
-        // Random translate 2-5px
-        const minVal = 2;
-        const maxVal = 5;
-        const randomX = (minVal + Math.random() * (maxVal - minVal)) * (Math.random() < 0.5 ? -1 : 1);
-        const randomY = (minVal + Math.random() * (maxVal - minVal)) * (Math.random() < 0.5 ? -1 : 1);
-        setShake({ x: randomX, y: randomY });
-      }, 100); // 0.1s interval as requested
+    let rafId;
+    let startTs;
 
-      return () => clearInterval(intervalId);
-    } else {
-      setShake({ x: 0, y: 0 });
-    }
-  }, [demoMode]);
+    const loop = (ts) => {
+      if (startTs === undefined) startTs = ts;
+      const { assistActive, offsetX, offsetY, demoMode } = liveRef.current;
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+
+      if (demoMode) {
+        const s = (ts - startTs) / 1000; // seconds
+        // Layered sine waves (~5.5Hz base + harmonics) mimic an organic hand tremor.
+        const shakeX =
+          Math.sin(s * TAU * 5.5) * DEMO_AMPLITUDE +
+          Math.sin(s * TAU * 9.1) * DEMO_AMPLITUDE * 0.35;
+        const shakeY =
+          Math.cos(s * TAU * 4.9) * DEMO_AMPLITUDE +
+          Math.cos(s * TAU * 8.3) * DEMO_AMPLITUDE * 0.3;
+
+        if (outer) outer.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+        // When assist is ON we cancel the shake exactly, so the text sits still
+        // relative to the eyes while the frame keeps trembling.
+        if (inner) {
+          inner.style.transform = assistActive
+            ? `translate(${-shakeX}px, ${-shakeY}px)`
+            : 'translate(0px, 0px)';
+        }
+      } else {
+        // Real device: the frame doesn't move; the text shifts by the sensor
+        // compensation offsets only when assist is active.
+        if (outer) outer.style.transform = '';
+        if (inner) {
+          inner.style.transform = assistActive
+            ? `translate(${offsetX}px, ${offsetY}px)`
+            : 'translate(0px, 0px)';
+        }
+      }
+
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   // Contrast Themes
   const themeStyles = {
@@ -81,48 +120,31 @@ export function StabilizedViewport({
   // Split original text while keeping whitespace for correct layout rendering
   const tokens = text ? text.split(/(\s+)/) : [];
 
-  // Determine external container style (simulates shaking hand in demo mode)
-  const outerStyle = demoMode
-    ? { transform: `translate(${shake.x}px, ${shake.y}px)`, transition: 'transform 0.05s ease-out' }
-    : {};
-
-  // Determine inner container style (stabilizes shaking in demo mode or real sensor)
-  let innerStyle = {};
-  if (assistActive) {
-    if (demoMode) {
-      // In demo mode, we neutralize the outer shake exactly
-      innerStyle = { transform: `translate(${-shake.x}px, ${-shake.y}px)`, transition: 'transform 0.05s ease-out' };
-    } else {
-      // In real device mode, we translate by the calculated compensation offsets
-      innerStyle = { transform: `translate(${offsetX}px, ${offsetY}px)` };
-    }
-  }
-
   return (
     <div className="w-full flex flex-col gap-3 relative">
-      <div className="flex justify-between items-center px-1">
+      <div className="flex flex-wrap justify-between items-center gap-2 px-1">
         <h3 className="text-lg font-bold text-blue-900">Stabilized Viewport</h3>
-        {assistActive && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded">
-              dX: {offsetX.toFixed(1)}px | dY: {offsetY.toFixed(1)}px
-            </span>
-            <span className="flex items-center gap-1.5 text-green-600 font-bold text-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping" />
-              Stabilization Active
-            </span>
-          </div>
+        {/* Explicit before/after status so the difference is unmistakable */}
+        {assistActive ? (
+          <span className="flex items-center gap-2 bg-green-100 text-green-800 font-black text-sm px-3 py-1.5 rounded-full border border-green-300">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping" />
+            Stabilized — text held still
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 bg-amber-100 text-amber-900 font-black text-sm px-3 py-1.5 rounded-full border border-amber-300 animate-pulse">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            {demoMode ? 'Shaking — no stabilization' : 'Stabilization off'}
+          </span>
         )}
       </div>
 
-      {/* Main Viewport Container */}
+      {/* Main Viewport Container (the "hand" — trembles in demo mode) */}
       <div
-        ref={viewportRef}
-        style={outerStyle}
-        className={`w-full h-[400px] md:h-[500px] overflow-y-auto rounded-2xl p-6 md:p-8 border-2 shadow-inner select-none transition-all duration-300 ${currentTheme.bg} ${currentTheme.border}`}
+        ref={outerRef}
+        className={`w-full h-[400px] md:h-[500px] overflow-y-auto rounded-2xl p-6 md:p-8 border-2 shadow-inner select-none will-change-transform ${currentTheme.bg} ${currentTheme.border}`}
       >
         {/* Stabilized Text Wrapper */}
-        <div style={innerStyle} className="w-full min-h-full leading-relaxed select-text">
+        <div ref={innerRef} className="w-full min-h-full leading-relaxed select-text will-change-transform">
           {!text ? (
             <p className="text-neutral-400 italic text-center text-xl mt-12">
               No text to read. Paste some text above to begin reading.
