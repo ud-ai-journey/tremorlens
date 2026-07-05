@@ -8,7 +8,7 @@ const isConfigured = !!PUBLIC_KEY && PUBLIC_KEY !== 'your-vapi-public-key-here';
 
 function buildSystemPrompt(ctx) {
   return [
-    'You are the NeuroScreen voice assistant, speaking with an older adult who just',
+    'You are the Dadu voice assistant, speaking with an older adult who just',
     'finished a simple at-home tremor screening. Be warm, calm, and slow. Use short,',
     'plain sentences. This is a wellness screening, NOT a medical diagnosis — never',
     'diagnose Parkinson\'s or any disease. Encourage them to see a doctor for anything',
@@ -78,7 +78,7 @@ export function useVapi() {
 
     const systemPrompt = buildSystemPrompt(ctx);
     const firstMessage =
-      `Hello. I'm your NeuroScreen assistant. Your screening index came out at ` +
+      `Hello. I'm your Dadu assistant. Your screening index came out at ` +
       `${ctx.score.index} out of 100, which we call "${ctx.score.bandLabel}". ` +
       `Would you like me to explain what that means?`;
 

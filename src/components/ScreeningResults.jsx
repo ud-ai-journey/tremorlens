@@ -73,7 +73,7 @@ export function ScreeningResults({ spiral, postural, onRestart, onOpenAssist }) 
   };
 
   const emailBody = encodeURIComponent(
-    `NeuroScreen tremor screening results\n\n${report}\n\nQuestions for the doctor:\n- ${questions.join('\n- ')}\n\n(Screening tool, not a diagnosis.)`
+    `Dadu tremor screening results\n\n${report}\n\nQuestions for the doctor:\n- ${questions.join('\n- ')}\n\n(Screening tool, not a diagnosis.)`
   );
 
   const voiceActive = vapi.status === 'active' || vapi.status === 'connecting';
@@ -153,7 +153,7 @@ export function ScreeningResults({ spiral, postural, onRestart, onOpenAssist }) 
         </div>
         <p className="text-base leading-relaxed text-neutral-800">{report}</p>
         <p className="text-xs text-neutral-400 font-medium italic">
-          NeuroScreen is an awareness tool, not a medical diagnosis.
+          Dadu is an awareness tool, not a medical diagnosis.
         </p>
       </div>
 
@@ -179,7 +179,7 @@ export function ScreeningResults({ spiral, postural, onRestart, onOpenAssist }) 
         {vapi.supported ? (
           <>
             <p className="text-sm text-blue-100">
-              Ask questions out loud and the NeuroScreen assistant will explain your results.
+              Ask questions out loud and the Dadu assistant will explain your results.
             </p>
             {!voiceActive ? (
               <button
@@ -247,7 +247,7 @@ export function ScreeningResults({ spiral, postural, onRestart, onOpenAssist }) 
           {saved ? '✓ Saved to history' : 'Save to history'}
         </button>
         <a
-          href={`mailto:?subject=${encodeURIComponent('My NeuroScreen tremor results')}&body=${emailBody}`}
+          href={`mailto:?subject=${encodeURIComponent('My Dadu tremor results')}&body=${emailBody}`}
           className="flex-1 min-h-[52px] flex items-center justify-center bg-white border-2 border-blue-200 text-blue-700 font-black rounded-xl active:scale-95 transition touch-manipulation"
         >
           Email to doctor / family

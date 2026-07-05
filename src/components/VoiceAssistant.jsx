@@ -4,11 +4,11 @@ import { parseCommand, voiceConfigured } from '../utils/voiceCommand';
 const SR =
   typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
-// Accept common mishearings of "Hey Uday".
-const WAKE = /\b(hey|hi|hello|ok|okay|a)\s+(uday|udai|oday|today|udhay|u day|you day|hoday|uda)\b/;
+// Accept common mishearings of "Hey Dadu".
+const WAKE = /\b(hey|hi|hello|ok|okay|a)\s+(dadu|dada|dhadu|thadu|daddy|dad|dodo|uday|udai|oday|today|udhay|u day|you day|hoday|uda)\b/;
 
 /**
- * Global voice assistant. Listens for the wake phrase "Hey Uday" (Chrome/Android;
+ * Global voice assistant. Listens for the wake phrase "Hey Dadu" (Chrome/Android;
  * unsupported on iOS Safari), or use the tap-to-talk mic. The spoken command is
  * parsed by GPT-4o into an action that onAction() executes; onAction returns a
  * short confirmation string that is spoken back.
@@ -117,7 +117,7 @@ export function VoiceAssistant({ onAction }) {
         const rest = combined.slice(combined.indexOf(m[0]) + m[0].length).trim();
         setPhaseBoth('command');
         setHeard('Listening…');
-        if (rest && final) finalize(rest); // "hey uday open exercises" in one breath
+        if (rest && final) finalize(rest); // "hey dadu open exercises" in one breath
       } else {
         setHeard(interim || final);
       }
@@ -192,8 +192,8 @@ export function VoiceAssistant({ onAction }) {
       : phase === 'command'
         ? 'Listening for your command…'
         : phase === 'wake'
-          ? 'Say “Hey Uday”…'
-          : 'Tap the mic or turn on “Hey Uday”.';
+          ? 'Say “Hey Dadu”…'
+          : 'Tap the mic or turn on “Hey Dadu”.';
 
   return (
     <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
@@ -232,7 +232,7 @@ export function VoiceAssistant({ onAction }) {
                 wake ? 'bg-green-100 border-green-400 text-green-800' : 'bg-neutral-50 border-neutral-200 text-neutral-600'
               }`}
             >
-              {wake ? '“Hey Uday” ON' : '“Hey Uday” OFF'}
+              {wake ? '“Hey Dadu” ON' : '“Hey Dadu” OFF'}
             </button>
           </div>
 

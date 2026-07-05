@@ -120,7 +120,7 @@ export default function App() {
 
       <footer className="bg-neutral-800 text-neutral-400 py-6 border-t border-neutral-700 mt-12">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-sm font-bold">NeuroScreen v1.0.0</p>
+          <p className="text-sm font-bold">Dadu v1.0.0</p>
           <p className="text-xs mt-1 text-neutral-500">
             A wellness screening tool — not a medical device or diagnosis.
           </p>
@@ -134,10 +134,10 @@ function About() {
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-5">
       <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-6 flex flex-col gap-3">
-        <h2 className="text-2xl font-black text-blue-900">About NeuroScreen</h2>
+        <h2 className="text-2xl font-black text-blue-900">About Dadu</h2>
         <p className="text-neutral-700 leading-relaxed">
           Early signs of essential tremor and Parkinson's often go unnoticed for
-          years. NeuroScreen turns your phone into a simple, at-home tremor check
+          years. Dadu turns your phone into a simple, at-home tremor check
           so changes can be spotted — and discussed with a doctor — sooner.
         </p>
       </div>
@@ -154,7 +154,7 @@ function About() {
       <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 flex flex-col gap-2">
         <h3 className="text-lg font-black text-amber-900">Important</h3>
         <p className="text-amber-900 text-sm leading-relaxed">
-          NeuroScreen is a wellness and awareness tool. It does <strong>not</strong>{' '}
+          Dadu is a wellness and awareness tool. It does <strong>not</strong>{' '}
           diagnose any condition. A rising trend or a concerning result should be
           reviewed by a qualified doctor or neurologist. If you have sudden or
           severe symptoms, seek medical care right away.

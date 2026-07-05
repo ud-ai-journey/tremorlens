@@ -1,13 +1,13 @@
 /**
  * Turn a spoken command into a structured app action using GPT-4o.
- * Used by the "Hey Uday" voice assistant.
+ * Used by the "Hey Dadu" voice assistant.
  */
 
 const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 export const voiceConfigured = !!OPENAI_KEY && OPENAI_KEY.startsWith('sk-');
 
-const SYSTEM = `You are the intent parser for "NeuroScreen", a tremor-screening app for seniors.
+const SYSTEM = `You are the intent parser for "Dadu", a tremor-screening app for seniors.
 Convert the user's spoken command into ONE JSON action. Return ONLY JSON, no prose.
 
 Tabs: "screen" (spiral tremor test), "read" (read/scan/explain text & photos),

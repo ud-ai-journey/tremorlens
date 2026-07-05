@@ -1,13 +1,13 @@
-# NeuroScreen 🌀🧠
+# Dadu 🌀🧠
 
-**Early, at-home tremor screening for seniors.** NeuroScreen turns a phone into a
+**Early, at-home tremor screening for seniors.** Dadu turns a phone into a
 simple 2-minute check for hand tremor — the kind that can be an early sign of
 essential tremor or Parkinson's — and explains the result in plain language you
 can share with a doctor.
 
 Built with **React 18, Vite, Tailwind CSS**, and **Vapi** (voice assistant).
 
-> ⚠️ NeuroScreen is a wellness / awareness tool. It does **not** diagnose any
+> ⚠️ Dadu is a wellness / awareness tool. It does **not** diagnose any
 > medical condition. Concerning results should be reviewed by a doctor.
 
 ---

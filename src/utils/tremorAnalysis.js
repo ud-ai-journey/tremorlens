@@ -1,5 +1,5 @@
 /**
- * NeuroScreen tremor analysis.
+ * Dadu tremor analysis.
  *
  * Turns raw motion samples (touch points from the spiral test, or accelerometer
  * samples from the postural hold) into objective, quantifiable tremor metrics:

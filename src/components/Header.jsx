@@ -36,8 +36,8 @@ export function Header({ activeTab, setActiveTab, installPrompt, triggerInstall 
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight select-none">NeuroScreen</h1>
-            <p className="text-xs text-blue-200 font-medium">Early tremor check for seniors</p>
+            <h1 className="text-2xl font-bold tracking-tight select-none">Dadu</h1>
+            <p className="text-xs text-blue-200 font-medium">A caring companion for seniors</p>
           </div>
         </div>
 
