@@ -7,8 +7,7 @@ export function StabilizedViewport({
   fontSize,
   contrastMode,
   assistActive,
-  motionX,
-  motionY,
+  motionRef,
   demoMode,
   sensitivity,
   ttsPlay,
@@ -18,46 +17,50 @@ export function StabilizedViewport({
   ttsLoading,
   currentWordIndex,
 }) {
-  const innerRef = useRef(null); // wrapper we translate to show / cancel shake
+  const outerRef = useRef(null); // the "phone" frame (shakes in demo mode)
+  const innerRef = useRef(null); // the text — held still in 3D space when assist is ON
 
-  // Keep the latest live values so the animation loop reads fresh state
-  // without tearing down and restarting on every prop change.
-  const liveRef = useRef({ assistActive, motionX, motionY, demoMode, sensitivity });
-  liveRef.current = { assistActive, motionX, motionY, demoMode, sensitivity };
+  const liveRef = useRef({ assistActive, demoMode, sensitivity });
+  liveRef.current = { assistActive, demoMode, sensitivity };
 
-  // One requestAnimationFrame loop drives the transform directly on the DOM
-  // node — smooth 60fps motion without re-rendering the whole word list, and no
-  // CSS transition (which would smear the shake).
+  // One requestAnimationFrame loop drives the transforms straight on the DOM —
+  // smooth 60fps, no re-render of the word list, and no CSS transition (which
+  // would smear the compensation).
   useEffect(() => {
     let rafId;
     let startTs;
 
     const loop = (ts) => {
       if (startTs === undefined) startTs = ts;
+      const outer = outerRef.current;
       const inner = innerRef.current;
-      if (!inner) {
-        rafId = requestAnimationFrame(loop);
-        return;
-      }
+      const { assistActive, demoMode, sensitivity } = liveRef.current;
 
-      const { assistActive, motionX, motionY, demoMode, sensitivity } = liveRef.current;
-
-      if (assistActive) {
-        // TremorLens ON: the words are pinned perfectly still.
-        inner.style.transform = 'translate(0px, 0px)';
-      } else if (demoMode) {
-        // OFF + desktop demo: an organic simulated hand tremor moves the text so
-        // you can see how hard it is to read while shaking. Amplitude follows
-        // the Movement Sensitivity slider for instant, visible feedback.
+      if (demoMode) {
+        // The box represents the phone physically shaking in the hand.
         const s = (ts - startTs) / 1000;
-        const amp = Math.max(2, Math.min(48, (typeof sensitivity === 'number' ? sensitivity : 2) * 7));
+        const amp = Math.max(4, Math.min(40, (typeof sensitivity === 'number' ? sensitivity : 2.5) * 6));
         const shakeX = Math.sin(s * TAU * 5.5) * amp + Math.sin(s * TAU * 9.1) * amp * 0.35;
         const shakeY = Math.cos(s * TAU * 4.9) * amp + Math.cos(s * TAU * 8.3) * amp * 0.3;
-        inner.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+
+        if (outer) outer.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+        // ON: text moves opposite the frame -> stays locked to the page (= the
+        // world / the reader's eyes). OFF: text rides along with the phone.
+        if (inner) {
+          inner.style.transform = assistActive
+            ? `translate(${-shakeX}px, ${-shakeY}px)`
+            : 'translate(0px, 0px)';
+        }
       } else {
-        // OFF + real phone: the text follows the gyroscope, so tilting/shaking
-        // the phone visibly moves the words.
-        inner.style.transform = `translate(${motionX}px, ${motionY}px)`;
+        // Real device: the frame doesn't move on screen; the text is shifted by
+        // the accelerometer-derived counter-displacement when assist is ON.
+        if (outer) outer.style.transform = '';
+        const m = motionRef && motionRef.current ? motionRef.current : { x: 0, y: 0 };
+        if (inner) {
+          inner.style.transform = assistActive
+            ? `translate(${m.x}px, ${m.y}px)`
+            : 'translate(0px, 0px)';
+        }
       }
 
       rafId = requestAnimationFrame(loop);
@@ -65,7 +68,7 @@ export function StabilizedViewport({
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [motionRef]);
 
   // Contrast Themes
   const themeStyles = {
@@ -112,32 +115,33 @@ export function StabilizedViewport({
   // Split original text while keeping whitespace for correct layout rendering
   const tokens = text ? text.split(/(\s+)/) : [];
 
-  // TremorLens ON enlarges the text ~20% for extra readability.
+  // Enlarge the text ~20% when stabilization is on for extra readability.
   const effectiveFontSize = assistActive ? Math.round(fontSize * 1.2) : fontSize;
 
   return (
     <div className="w-full flex flex-col gap-3 relative">
       <div className="flex flex-wrap justify-between items-center gap-2 px-1">
         <h3 className="text-lg font-bold text-blue-900">Stabilized Viewport</h3>
-        {/* Explicit before/after status so the difference is unmistakable */}
+        {/* Explicit status so the difference is unmistakable */}
         {assistActive ? (
           <span className="flex items-center gap-2 bg-green-100 text-green-800 font-black text-sm px-3 py-1.5 rounded-full border border-green-300">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping" />
-            Steady &amp; enlarged — easy to read
+            Locked in space — words held still
           </span>
         ) : (
           <span className="flex items-center gap-2 bg-amber-100 text-amber-900 font-black text-sm px-3 py-1.5 rounded-full border border-amber-300 animate-pulse">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            Shaking — turn on TremorLens
+            {demoMode ? 'Shaking — words move with the phone' : 'Off — no compensation'}
           </span>
         )}
       </div>
 
-      {/* Main Viewport Container (stays still — a stable frame of reference) */}
+      {/* Main Viewport Container — in demo mode this box IS the shaking phone */}
       <div
-        className={`w-full h-[400px] md:h-[500px] overflow-y-auto rounded-2xl p-6 md:p-8 border-2 shadow-inner select-none ${currentTheme.bg} ${currentTheme.border}`}
+        ref={outerRef}
+        className={`w-full h-[400px] md:h-[500px] overflow-y-auto rounded-2xl p-6 md:p-8 border-2 shadow-inner select-none will-change-transform ${currentTheme.bg} ${currentTheme.border}`}
       >
-        {/* Text Wrapper — this is what shakes (OFF) or holds still (ON) */}
+        {/* Text Wrapper — counter-shifted so it stays locked in 3D space */}
         <div ref={innerRef} className="w-full min-h-full leading-relaxed select-text will-change-transform">
           {!text ? (
             <p className="text-neutral-400 italic text-center text-xl mt-12">
@@ -167,6 +171,17 @@ export function StabilizedViewport({
           )}
         </div>
       </div>
+
+      {/* Explainer caption for the demo so the metaphor is clear */}
+      {demoMode && (
+        <p className="text-xs text-neutral-500 font-medium bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <strong className="text-amber-800">Demo:</strong> the box is your phone
+          shaking in your hand. With TremorLens ON, the words shift the opposite
+          way and stay locked to the page — i.e. still in front of your eyes —
+          while only the frame keeps trembling. On a real phone, the accelerometer
+          measures the shake and does this automatically.
+        </p>
+      )}
 
       {/* Floating/Fixed TTS control bar inside viewport - ALWAYS VISIBLE */}
       <div

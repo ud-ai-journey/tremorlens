@@ -9,9 +9,9 @@ export function TremorControls({
   toggleDemoMode,
 }) {
   const sensitivityOptions = [
-    { id: 1.0, label: 'Gentle' },
+    { id: 1.5, label: 'Gentle' },
     { id: 2.5, label: 'Medium' },
-    { id: 5.0, label: 'Strong' },
+    { id: 4.0, label: 'Strong' },
   ];
 
   return (
@@ -41,21 +41,21 @@ export function TremorControls({
         </button>
         <p className="text-xs text-neutral-500 font-medium text-center">
           {isActive
-            ? 'Text is held still and enlarged for easy reading. Hold your phone naturally.'
-            : 'Turn Tremor Assist ON to lock the text still. While OFF, the text follows your movement so you can see the shake.'}
+            ? 'Words are counter-shifted to stay locked in space in front of your eyes, and enlarged for easy reading.'
+            : 'Turn Tremor Assist ON. TremorLens measures your hand movement and slides the words the opposite way to hold them steady.'}
         </p>
       </div>
 
       {/* Sensitivity Picker */}
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm font-bold text-blue-900">Movement Sensitivity</span>
+          <span className="text-sm font-bold text-blue-900">Compensation Strength</span>
           <span className="text-xs font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
             {typeof sensitivity === 'number' ? `${sensitivity.toFixed(1)}x` : 'Auto'}
           </span>
         </div>
         <p className="text-[11px] text-neutral-400 font-medium -mt-1">
-          How much the text moves with your hand while Tremor Assist is OFF.
+          How hard TremorLens pushes the words opposite to your hand's shake. Tune until the text feels steadiest.
         </p>
         
         {/* Preset Buttons */}

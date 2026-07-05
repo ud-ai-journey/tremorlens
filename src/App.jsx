@@ -14,7 +14,7 @@ By using your device's built-in orientation sensors, TremorLens moves the text i
 
 Instructions:
 1. Toggle the big "Tremor Assist" button to turn on stabilization.
-2. If you are reading on a computer, turn on "Demo Mode" to simulate a hand tremor. With Tremor Assist OFF the words jitter around; turn it ON and the words instantly lock still and grow larger for easy reading!
+2. On a real phone, TremorLens reads your hand's movement and slides the words the opposite way, so they stay locked in mid-air in front of your eyes even while the phone shakes. On a computer, turn on "Demo Mode": the box acts as the shaking phone, and with Assist ON the words stay pinned to the page while only the frame trembles.
 3. Tap "Read Aloud" or "Speak" below to hear the text. Spoken words will be highlighted in yellow.
 4. Go to the "Exercises" tab to practice holding your device steady with our stability training game.`;
 
@@ -27,6 +27,7 @@ export default function App() {
 
   // Tremor compensation hook
   const {
+    motionRef,
     motionX,
     motionY,
     isActive: assistActive,
@@ -180,8 +181,7 @@ export default function App() {
                 fontSize={fontSize}
                 contrastMode={contrastMode}
                 assistActive={assistActive}
-                motionX={motionX}
-                motionY={motionY}
+                motionRef={motionRef}
                 demoMode={demoMode}
                 sensitivity={sensitivity}
                 ttsPlay={handleTTSPlay}

@@ -1,118 +1,86 @@
 import { useState, useEffect, useRef } from 'react';
 
+/**
+ * Reads the device's LINEAR acceleration (DeviceMotion) — the signal that
+ * actually reflects the phone physically translating through space in a
+ * trembling hand. Gravity is stripped out so only real movement remains.
+ *
+ * We expose the gravity-removed acceleration through a ref (accelRef) rather
+ * than React state, because it updates ~60x/sec and is consumed by an
+ * animation loop, not by rendering.
+ */
 export function useDeviceMotion(demoMode = false) {
-  const [reading, setReading] = useState({ alpha: 0, beta: 0, gamma: 0 });
-  const [average, setAverage] = useState({ alpha: 0, beta: 0, gamma: 0 });
-  const [offset, setOffset] = useState({ alpha: 0, beta: 0, gamma: 0 });
-  const [permission, setPermission] = useState('default'); // 'default', 'granted', 'denied'
-  const samplesRef = useRef([]);
+  const [permission, setPermission] = useState('default'); // 'default' | 'granted' | 'denied'
+  const [supported, setSupported] = useState(true);
+
+  const accelRef = useRef({ x: 0, y: 0 }); // gravity-removed accel, device frame (m/s^2)
+  const gravityRef = useRef({ x: 0, y: 0 }); // slow low-pass estimate of gravity (fallback path)
 
   const requestPermission = async () => {
-    if (
-      typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function'
-    ) {
-      try {
-        const res = await DeviceOrientationEvent.requestPermission();
+    try {
+      if (
+        typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function'
+      ) {
+        const res = await DeviceMotionEvent.requestPermission();
         setPermission(res);
         return res === 'granted';
-      } catch (err) {
-        console.error('Error requesting device orientation permission:', err);
-        setPermission('denied');
-        return false;
       }
-    } else {
+      // Non-gated platforms (Android/desktop): access is implicitly allowed.
       setPermission('granted');
       return true;
+    } catch (err) {
+      console.error('Error requesting device motion permission:', err);
+      setPermission('denied');
+      return false;
     }
   };
 
   useEffect(() => {
-    // Check if DeviceOrientationEvent permission is already granted/supported
-    if (
-      typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission !== 'function'
-    ) {
+    if (typeof DeviceMotionEvent === 'undefined') {
+      setSupported(false);
+      return;
+    }
+    // Platforms without the gated permission API don't need a user gesture.
+    if (typeof DeviceMotionEvent.requestPermission !== 'function') {
       setPermission('granted');
     }
   }, []);
 
-  const lastCenterRef = useRef({ alpha: 0, beta: 0, gamma: 0 });
-  const isInitializedRef = useRef(false);
-
   useEffect(() => {
-    const handleNewReading = (newReading) => {
-      setReading(newReading);
+    if (demoMode) {
+      accelRef.current = { x: 0, y: 0 };
+      return;
+    }
+    if (permission !== 'granted') return;
 
-      if (!isInitializedRef.current) {
-        lastCenterRef.current = { ...newReading };
-        isInitializedRef.current = true;
-        setAverage(newReading);
-        return;
+    const GRAVITY_LP = 0.9; // low-pass factor for the gravity estimate (fallback)
+
+    const handleMotion = (event) => {
+      const acc = event.acceleration;
+      let ax;
+      let ay;
+
+      if (acc && acc.x !== null && acc.y !== null) {
+        // Preferred: hardware already removed gravity.
+        ax = acc.x || 0;
+        ay = acc.y || 0;
+      } else {
+        // Fallback: subtract a slow low-pass (gravity) from the raw signal.
+        const g = event.accelerationIncludingGravity;
+        if (!g || g.x === null || g.y === null) return;
+        gravityRef.current.x = gravityRef.current.x * GRAVITY_LP + (g.x || 0) * (1 - GRAVITY_LP);
+        gravityRef.current.y = gravityRef.current.y * GRAVITY_LP + (g.y || 0) * (1 - GRAVITY_LP);
+        ax = (g.x || 0) - gravityRef.current.x;
+        ay = (g.y || 0) - gravityRef.current.y;
       }
 
-      // Smooth Low-Pass Filter (Exponential Smoothing)
-      // alpha = 0.98 means the baseline moves very slowly, preventing the return-to-center bounce
-      const SMOOTHING = 0.98;
-      const avg = {
-        alpha: lastCenterRef.current.alpha * SMOOTHING + newReading.alpha * (1 - SMOOTHING),
-        beta: lastCenterRef.current.beta * SMOOTHING + newReading.beta * (1 - SMOOTHING),
-        gamma: lastCenterRef.current.gamma * SMOOTHING + newReading.gamma * (1 - SMOOTHING),
-      };
-      
-      lastCenterRef.current = avg;
-      setAverage(avg);
-
-      // Inverted offset compensation (reverse coefficients to cancel out the shake)
-      // When phone tilts right (+gamma), offset must translate left (-X).
-      setOffset({
-        alpha: newReading.alpha - avg.alpha,
-        beta: -(newReading.beta - avg.beta),   // Inverted Y axis
-        gamma: -(newReading.gamma - avg.gamma)  // Inverted X axis
-      });
+      accelRef.current = { x: ax, y: ay };
     };
 
-    if (demoMode) {
-      // Simulation mode (for desktop/testing)
-      let time = 0;
-      const intervalId = setInterval(() => {
-        time += 0.1;
-        // Generate random shaking centered around (180, 45, 0)
-        const alphaTremor = 180 + Math.sin(time * 15) * 3 + (Math.random() - 0.5) * 2;
-        const betaTremor = 45 + Math.cos(time * 17) * 3 + (Math.random() - 0.5) * 2;
-        const gammaTremor = 0 + Math.sin(time * 12) * 3 + (Math.random() - 0.5) * 2;
-
-        handleNewReading({
-          alpha: alphaTremor,
-          beta: betaTremor,
-          gamma: gammaTremor,
-        });
-      }, 50); // 20Hz update speed for natural tremor frequency
-
-      return () => clearInterval(intervalId);
-    } else {
-      // Real device sensor mode
-      if (permission !== 'granted') return;
-
-      const handleOrientation = (event) => {
-        const { alpha, beta, gamma } = event;
-        // Check for null values (some desktop browsers send empty events)
-        if (alpha === null || beta === null || gamma === null) return;
-        handleNewReading({ alpha, beta, gamma });
-      };
-
-      window.addEventListener('deviceorientation', handleOrientation);
-      return () => {
-        window.removeEventListener('deviceorientation', handleOrientation);
-      };
-    }
+    window.addEventListener('devicemotion', handleMotion);
+    return () => window.removeEventListener('devicemotion', handleMotion);
   }, [demoMode, permission]);
 
-  return {
-    reading,
-    average,
-    offset,
-    permission,
-    requestPermission,
-  };
+  return { accelRef, permission, requestPermission, supported };
 }
