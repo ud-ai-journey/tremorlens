@@ -3,6 +3,7 @@ import React from 'react';
 export function Header({ activeTab, setActiveTab, installPrompt, triggerInstall }) {
   const tabs = [
     { id: 'screen', label: 'Screen' },
+    { id: 'exercises', label: 'Exercises' },
     { id: 'history', label: 'History' },
     { id: 'about', label: 'About' },
   ];
