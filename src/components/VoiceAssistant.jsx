@@ -79,12 +79,8 @@ export function VoiceAssistant({ onAction }) {
 
     let confirmation = '';
     try {
-      if (!voiceConfigured) {
-        confirmation = 'Voice commands need an OpenAI key.';
-      } else {
-        const action = await parseCommand(cmd);
-        confirmation = (await onActionRef.current(action)) || 'Done.';
-      }
+      const action = await parseCommand(cmd); // GPT-4o with keyword fallback
+      confirmation = (await onActionRef.current(action)) || 'Done.';
     } catch (err) {
       console.error('Voice command failed:', err);
       confirmation = "Sorry, I didn't catch that. Please try again.";

@@ -1,68 +1,47 @@
-const CACHE_NAME = 'tremorlens-cache-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
-];
+// Dadu service worker — NETWORK-FIRST so the latest deploy always loads.
+// (The old cache-first version served a stale app shell after updates.)
+const CACHE_NAME = 'dadu-cache-v3';
+const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
-// Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('Opened cache and caching critical shell assets');
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL).catch(() => {}))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activate Event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('Clearing old cache:', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch Event (Cache-First, fallback to Network, dynamically cache new assets)
+// Network-first: always try the network, fall back to cache only when offline.
 self.addEventListener('fetch', (event) => {
-  // Only handle HTTP/HTTPS protocols (avoid chrome-extension issues)
-  if (!event.request.url.startsWith('http')) return;
+  const req = event.request;
+  if (!req.url.startsWith('http') || req.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((networkResponse) => {
-        // Validate response
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    fetch(req)
+      .then((res) => {
+        // Cache same-origin successful responses for offline fallback.
+        if (res && res.status === 200 && res.type === 'basic') {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
-
-        // Cache the newly requested asset for future offline support
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-
-        return networkResponse;
-      }).catch(() => {
-        // Return index.html as offline fallback for SPA routing if fetch fails
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-      });
-    })
+        return res;
+      })
+      .catch(() =>
+        caches.match(req).then((cached) => {
+          if (cached) return cached;
+          if (req.mode === 'navigate') return caches.match('/index.html');
+          return undefined;
+        })
+      )
   );
 });

@@ -39,36 +39,84 @@ Examples:
 "scan my medicine label" -> {"action":"scan","mode":"extract"}
 Keep any "speak" text under 30 words.`;
 
+// Offline keyword fallback so commands still work if GPT-4o is slow/unreachable
+// or no key is configured. Covers the common demo commands.
+const EX_NAMES = [
+  ['finger extension', 1],
+  ['finger spread', 2],
+  ['interlace', 3],
+  ['fist', 4],
+  ['thumb', 5],
+  ['finger tip', 6],
+  ['fingertip', 6],
+  ['tip touch', 6],
+];
+const ORDINALS = {
+  first: 1, one: 1, '1': 1,
+  second: 2, two: 2, '2': 2,
+  third: 3, three: 3, '3': 3,
+  fourth: 4, four: 4, '4': 4,
+  fifth: 5, five: 5, '5': 5,
+  sixth: 6, six: 6, '6': 6,
+};
+
+export function localParseCommand(text) {
+  const t = (text || '').toLowerCase();
+
+  // Specific exercise by name or number
+  if (/exercise|stretch|finger|thumb|fist|interlace/.test(t)) {
+    for (const [name, n] of EX_NAMES) if (t.includes(name)) return { action: 'exercise', n };
+    for (const word in ORDINALS) {
+      if (new RegExp(`\\b${word}\\b`).test(t) && /exercise|stretch/.test(t)) {
+        return { action: 'exercise', n: ORDINALS[word] };
+      }
+    }
+    if (t.includes('exercise')) return { action: 'navigate', tab: 'exercises' };
+  }
+
+  if (/explain|what is this|what's this|tell me about|what.?s in/.test(t)) {
+    return { action: 'scan', mode: 'explain' };
+  }
+  if (/scan|camera|medicine|label|prescription|read (this|my|the)/.test(t)) {
+    return { action: 'scan', mode: 'extract' };
+  }
+  if (/spiral|tremor|screen|test my|check my/.test(t)) return { action: 'screen' };
+  if (/history|past|results|trend|record/.test(t)) return { action: 'navigate', tab: 'history' };
+  if (/exercise/.test(t)) return { action: 'navigate', tab: 'exercises' };
+  if (/read|text|reading/.test(t)) return { action: 'navigate', tab: 'read' };
+  if (/about|help|what can you do/.test(t)) return { action: 'navigate', tab: 'about' };
+  return { action: 'unknown' };
+}
+
 export async function parseCommand(text) {
-  if (!voiceConfigured) throw new Error('Voice commands need an OpenAI key.');
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${OPENAI_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 120,
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: text },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Command parse failed (${res.status}).`);
+  if (voiceConfigured) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENAI_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          max_tokens: 120,
+          temperature: 0,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: SYSTEM },
+            { role: 'user', content: text },
+          ],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}');
+        if (parsed && parsed.action && parsed.action !== 'unknown') return parsed;
+      }
+    } catch (err) {
+      console.warn('GPT command parse failed, using keyword fallback:', err);
+    }
   }
-
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content || '{}';
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return { action: 'unknown' };
-  }
+  // Fallback: keyword matching (also handles the no-key case).
+  return localParseCommand(text);
 }
