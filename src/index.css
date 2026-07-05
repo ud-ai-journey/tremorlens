@@ -1,0 +1,50 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom Global Styles for accessible touch targets & font configurations */
+@layer base {
+  body {
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+  }
+
+  /* Accessible range slider styles for shaky hands */
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #1e40af; /* Tailwind blue-800 */
+    cursor: pointer;
+    border: 3px solid #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.1s ease-in-out;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #1e40af;
+    cursor: pointer;
+    border: 3px solid #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.1s ease-in-out;
+  }
+
+  input[type="range"]::-moz-range-thumb:active {
+    transform: scale(1.2);
+  }
+}
+
+/* Prevent zoom on double tap for better touch responsiveness */
+button, input, select, textarea {
+  touch-action: manipulation;
+}
