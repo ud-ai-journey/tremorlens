@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { readingProfileFromScore } from '../utils/tremorAnalysis';
 import { ocrConfigured, fileToDataUrl, extractTextFromImage, describeImage } from '../utils/ocr';
+import { CameraCapture } from './CameraCapture';
 
 /**
  * Personalized reading help, auto-tuned by the tremor screening score.
@@ -19,7 +20,7 @@ const THEMES = {
 const SAMPLE =
   'This is your personalized reading mode. The text size and contrast have been set to match your tremor result. Tap Read aloud to have it spoken to you, and use the buttons to make the words bigger or change the colors until they are comfortable to read.';
 
-export function ReadingAssist({ score, report, onBack }) {
+export function ReadingAssist({ score, report, onBack, autoScan }) {
   const profile = readingProfileFromScore(score);
   const [fontSize, setFontSize] = useState(profile.fontSize);
   const [contrast, setContrast] = useState(profile.contrast);
@@ -29,24 +30,27 @@ export function ReadingAssist({ score, report, onBack }) {
   const [scanMode, setScanMode] = useState(''); // 'extract' | 'explain' while running
   const [scanError, setScanError] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [cameraMode, setCameraMode] = useState(null); // 'extract' | 'explain' when camera open
   const fileInputRef = useRef(null);
   const modeRef = useRef('extract');
+  const speakAfterRef = useRef(false); // read the result aloud (voice-triggered scans)
+  const autoNonceRef = useRef(autoScan?.nonce || 0);
   const tts = useTextToSpeech();
 
   const theme = THEMES[contrast] || THEMES.default;
   const tokens = text ? text.split(/(\s+)/) : [];
 
-  const processImageFile = async (file, mode) => {
-    if (!file || !ocrConfigured) return;
+  const processImageDataUrl = async (dataUrl, mode) => {
+    if (!dataUrl || !ocrConfigured) return;
     setScanError('');
     setScanMode(mode);
     setScanning(true);
     tts.stop();
+    let result = '';
     try {
-      const dataUrl = await fileToDataUrl(file);
       if (mode === 'explain') {
-        const explanation = await describeImage(dataUrl);
-        setText(explanation || 'Sorry, I could not describe that photo.');
+        result = (await describeImage(dataUrl)) || 'Sorry, I could not describe that photo.';
+        setText(result);
         setEditing(false);
         setFontSize((f) => Math.max(f, 34));
       } else {
@@ -54,17 +58,30 @@ export function ReadingAssist({ score, report, onBack }) {
         if (!extracted || extracted.toLowerCase() === 'no text found.') {
           setScanError('No readable text was found in that photo. Try again with better lighting.');
         } else {
+          result = extracted;
           setText(extracted);
           setEditing(false);
           setFontSize((f) => Math.max(f, 40)); // labels read better large
         }
       }
+      if (result && speakAfterRef.current) tts.speak(result);
     } catch (err) {
       console.error('Image processing failed:', err);
       setScanError(err?.message || 'Could not process that photo.');
     } finally {
       setScanning(false);
       setScanMode('');
+      speakAfterRef.current = false;
+    }
+  };
+
+  const processImageFile = async (file, mode) => {
+    if (!file || !ocrConfigured) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await processImageDataUrl(dataUrl, mode);
+    } catch (err) {
+      setScanError(err?.message || 'Could not read that photo.');
     }
   };
 
@@ -89,8 +106,34 @@ export function ReadingAssist({ score, report, onBack }) {
     }
   };
 
+  // Voice-triggered scan: open the auto-capture camera in the requested mode.
+  useEffect(() => {
+    if (autoScan && autoScan.nonce && autoScan.nonce !== autoNonceRef.current && ocrConfigured) {
+      autoNonceRef.current = autoScan.nonce;
+      speakAfterRef.current = true; // read the result aloud when driven by voice
+      setCameraMode(autoScan.mode || 'extract');
+      if (onAutoScanConsumed) onAutoScanConsumed();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScan]);
+
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-4">
+      {cameraMode && (
+        <CameraCapture
+          label={cameraMode === 'explain' ? 'Photo' : 'Scan label'}
+          onCapture={(dataUrl) => {
+            const mode = cameraMode;
+            setCameraMode(null);
+            processImageDataUrl(dataUrl, mode);
+          }}
+          onCancel={() => {
+            setCameraMode(null);
+            speakAfterRef.current = false;
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-4 flex items-center justify-between gap-3">
         <div>
@@ -170,7 +213,7 @@ export function ReadingAssist({ score, report, onBack }) {
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileInput} className="hidden" />
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => openPicker('extract')}
+            onClick={() => ocrConfigured && setCameraMode('extract')}
             disabled={scanning || !ocrConfigured}
             className={`min-h-[52px] font-black rounded-xl transition touch-manipulation ${
               !ocrConfigured
@@ -180,7 +223,7 @@ export function ReadingAssist({ score, report, onBack }) {
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 shadow'
             }`}
           >
-            {scanning && scanMode === 'extract' ? 'Reading…' : '📷 Scan text'}
+            {scanning && scanMode === 'extract' ? 'Reading…' : '📷 Scan a label'}
           </button>
           <button
             onClick={() => openPicker('explain')}

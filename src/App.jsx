@@ -1,12 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { ScreeningFlow } from './components/ScreeningFlow';
 import { ExercisesTab } from './components/ExercisesTab';
 import { ReadingAssist } from './components/ReadingAssist';
 import { HistoryTab } from './components/HistoryTab';
+import { VoiceAssistant } from './components/VoiceAssistant';
+import { exerciseByNumber } from './data/exercises';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('screen');
+  const [readAutoScan, setReadAutoScan] = useState(null); // { mode, nonce } — voice-triggered scan
+  const [focusExercise, setFocusExercise] = useState(null); // { n, nonce } — voice-focused exercise
+  const nonceRef = useRef(1);
+  const nextNonce = () => (nonceRef.current += 1);
+
+  // Executes a parsed voice command; returns a short confirmation to speak back.
+  const handleVoiceAction = (action) => {
+    if (!action || !action.action) return "Sorry, I didn't understand that.";
+    switch (action.action) {
+      case 'navigate': {
+        const names = {
+          screen: 'the tremor check',
+          read: 'the reading page',
+          exercises: 'the exercises',
+          history: 'your history',
+          about: 'the about page',
+        };
+        if (!names[action.tab]) return "I'm not sure which page you mean.";
+        setActiveTab(action.tab);
+        return `Opening ${names[action.tab]}.`;
+      }
+      case 'screen':
+        setActiveTab('screen');
+        return 'Opening the tremor check. Tap “Start the check” when you are ready.';
+      case 'scan': {
+        const mode = action.mode === 'explain' ? 'explain' : 'extract';
+        setActiveTab('read');
+        setReadAutoScan({ mode, nonce: nextNonce() });
+        return mode === 'explain'
+          ? 'Opening the camera. Hold the photo steady.'
+          : 'Opening the camera to scan. Hold the label steady.';
+      }
+      case 'exercise': {
+        const ex = exerciseByNumber(Number(action.n));
+        if (!ex) return "I couldn't find that exercise.";
+        setActiveTab('exercises');
+        setFocusExercise({ n: ex.n, nonce: nextNonce() });
+        return `${ex.title}. ${ex.steps}`;
+      }
+      case 'speak':
+        return action.text || 'Okay.';
+      default:
+        return "Sorry, I can't do that yet.";
+    }
+  };
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -63,11 +110,13 @@ export default function App() {
         )}
 
         {activeTab === 'screen' && <ScreeningFlow />}
-        {activeTab === 'read' && <ReadingAssist />}
-        {activeTab === 'exercises' && <ExercisesTab />}
+        {activeTab === 'read' && <ReadingAssist autoScan={readAutoScan} />}
+        {activeTab === 'exercises' && <ExercisesTab focusExercise={focusExercise} />}
         {activeTab === 'history' && <HistoryTab />}
         {activeTab === 'about' && <About />}
       </main>
+
+      <VoiceAssistant onAction={handleVoiceAction} />
 
       <footer className="bg-neutral-800 text-neutral-400 py-6 border-t border-neutral-700 mt-12">
         <div className="max-w-4xl mx-auto px-4 text-center">
