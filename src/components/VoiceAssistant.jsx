@@ -114,6 +114,7 @@ export function VoiceAssistant({ onAction }) {
   const transcriptAccumulatorRef = useRef('');
 
   const handleResult = (event) => {
+    if (busyRef.current) return;
     let interim = '';
     let final = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -131,6 +132,7 @@ export function VoiceAssistant({ onAction }) {
     }
 
     if (phaseRef.current === 'wake') {
+      if (busyRef.current) return;
       const combinedLower = combinedInterim.toLowerCase();
       const m = combinedLower.match(WAKE);
       if (m) {
