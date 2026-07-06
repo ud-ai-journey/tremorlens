@@ -41,9 +41,22 @@ export function VoiceAssistant({ onAction }) {
     }
     try {
       window.speechSynthesis.cancel();
+      
       const u = new SpeechSynthesisUtterance(text);
-      u.onend = () => cb && cb();
-      u.onerror = () => cb && cb();
+      // Keep reference globally to prevent garbage collection bugs
+      window.activeUtterance = u;
+      
+      let callbackExecuted = false;
+      const handleEnd = () => {
+        if (!callbackExecuted) {
+          callbackExecuted = true;
+          window.activeUtterance = null;
+          if (cb) cb();
+        }
+      };
+
+      u.onend = handleEnd;
+      u.onerror = handleEnd;
       window.speechSynthesis.speak(u);
     } catch {
       if (cb) cb();
