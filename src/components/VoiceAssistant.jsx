@@ -97,6 +97,9 @@ export function VoiceAssistant({ onAction }) {
     });
   };
 
+  const silenceTimerRef = useRef(null);
+  const transcriptAccumulatorRef = useRef('');
+
   const handleResult = (event) => {
     let interim = '';
     let final = '';
@@ -105,23 +108,53 @@ export function VoiceAssistant({ onAction }) {
       if (r.isFinal) final += r[0].transcript;
       else interim += r[0].transcript;
     }
-    const combined = `${final} ${interim}`.toLowerCase();
+
+    const combinedInterim = (transcriptAccumulatorRef.current + ' ' + final + ' ' + interim).trim();
+    setHeard(combinedInterim || 'Listening…');
+
+    // If we have final text, append it to our accumulator
+    if (final) {
+      transcriptAccumulatorRef.current = (transcriptAccumulatorRef.current + ' ' + final).trim();
+    }
 
     if (phaseRef.current === 'wake') {
-      const m = combined.match(WAKE);
+      const combinedLower = combinedInterim.toLowerCase();
+      const m = combinedLower.match(WAKE);
       if (m) {
-        const rest = combined.slice(combined.indexOf(m[0]) + m[0].length).trim();
+        // Found wake word! Extract command following wake word
+        const wakeWordIdx = combinedLower.indexOf(m[0]);
+        const rest = combinedInterim.slice(wakeWordIdx + m[0].length).trim();
+        
         setPhaseBoth('command');
-        setHeard('Listening…');
-        if (rest && final) finalize(rest); // "hey dadu open exercises" in one breath
-      } else {
-        setHeard(interim || final);
+        transcriptAccumulatorRef.current = rest;
+        setHeard(rest || 'Listening…');
+        
+        // Reset silence timer for the command phase
+        resetSilenceTimer();
       }
     } else if (phaseRef.current === 'command') {
-      if (final) finalize(final.trim());
-      else setHeard(interim || 'Listening…');
+      // In command mode, reset silence timeout to wait for user to finish speaking
+      resetSilenceTimer();
     }
   };
+
+  const resetSilenceTimer = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    
+    silenceTimerRef.current = setTimeout(() => {
+      if (phaseRef.current === 'command' && transcriptAccumulatorRef.current.trim()) {
+        const fullSentence = transcriptAccumulatorRef.current.trim();
+        transcriptAccumulatorRef.current = '';
+        finalize(fullSentence);
+      }
+    }, 1500); // Wait for 1.5 seconds of silence before finishing the command
+  };
+
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!SR) return undefined;
@@ -174,6 +207,7 @@ export function VoiceAssistant({ onAction }) {
     if (busyRef.current) return;
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setFeedback('');
+    transcriptAccumulatorRef.current = '';
     setHeard('Listening…');
     setPhaseBoth('command');
     startListening();
